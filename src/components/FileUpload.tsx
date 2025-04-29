@@ -4,7 +4,7 @@ import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Upload, FileText, AlertCircle, Loader2, Upload, File } from "lucide-react";
+import { Upload, FileText, AlertCircle, Loader2, File, X } from "lucide-react";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
 import { parseResume } from "@/utils/deepseekApi";
