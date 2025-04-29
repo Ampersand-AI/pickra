@@ -1,14 +1,15 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, Send } from "lucide-react";
+import { Mail, Send, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Resume } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
+import { callOpenAI } from "@/utils/openaiApi";
 
 interface SendTestDialogProps {
   open: boolean;
@@ -27,14 +28,68 @@ export default function SendTestDialog({
 }: SendTestDialogProps) {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [message, setMessage] = useState("");
   
   // Generate a unique test link for this candidate
   const testId = uuidv4().substring(0, 8);
   const testLink = `https://pickra.ai/test/${testId}`;
   
-  // Pre-filled message template
-  const defaultMessage = resume ? 
-    `Dear ${resume.extractedData?.name || "Candidate"},
+  // Generate a message using OpenAI when the dialog opens
+  useEffect(() => {
+    if (open && resume) {
+      const generateMessage = async () => {
+        setGenerating(true);
+        try {
+          const systemPrompt = `
+            You are an AI assistant helping recruiters send personalized test invitations to job candidates.
+            Write a professional and friendly email message to a candidate who has been shortlisted for a position.
+            The message should:
+            1. Be addressed to the candidate by name
+            2. Mention the specific job position
+            3. Explain that their resume has been shortlisted (mention their match percentage)
+            4. Request them to complete an assessment test as the next step
+            5. Include the provided test link
+            6. Be concise, professional and encouraging
+            7. Thank them for their interest
+          `;
+          
+          const prompt = `
+            Write a personalized test invitation email for:
+            
+            Candidate Name: ${resume.extractedData?.name || "Candidate"}
+            Candidate Email: ${resume.extractedData?.email || "Unknown"}
+            Position: ${jobTitle}
+            Match Percentage: ${resume.matchPercentage}%
+            Test Link: ${testLink}
+          `;
+          
+          const response = await callOpenAI(prompt, systemPrompt);
+          
+          if (response.error) {
+            console.error("Error generating message:", response.error);
+            // Fall back to default message if OpenAI fails
+            setMessage(getDefaultMessage());
+          } else {
+            const generatedContent = response.data.choices[0].message.content;
+            setMessage(generatedContent);
+          }
+        } catch (error) {
+          console.error("Error generating email:", error);
+          setMessage(getDefaultMessage());
+        } finally {
+          setGenerating(false);
+        }
+      };
+      
+      generateMessage();
+    }
+  }, [open, resume, jobTitle, testLink]);
+  
+  // Fallback message template if API call fails
+  const getDefaultMessage = () => {
+    return resume ? 
+      `Dear ${resume.extractedData?.name || "Candidate"},
 
 We were impressed with your profile for the ${jobTitle} position. As the next step in our evaluation process, we'd like you to complete a brief assessment.
 
@@ -47,8 +102,7 @@ Thank you for your interest in our company. We look forward to reviewing your re
 
 Best regards,
 Pickra AI Recruitment Team` : "";
-  
-  const [message, setMessage] = useState(defaultMessage);
+  };
   
   const handleSendTest = async () => {
     if (!resume) return;
@@ -119,13 +173,22 @@ Pickra AI Recruitment Team` : "";
             <Label htmlFor="message" className="text-right pt-2">
               Message
             </Label>
-            <Textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="col-span-3 min-h-[200px]"
-              placeholder="Enter your message to the candidate."
-            />
+            <div className="col-span-3">
+              {generating ? (
+                <div className="flex flex-col items-center justify-center p-4 border rounded-md bg-muted/20 min-h-[200px]">
+                  <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                  <p className="text-sm text-muted-foreground">Generating message with OpenAI...</p>
+                </div>
+              ) : (
+                <Textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="min-h-[200px]"
+                  placeholder="Enter your message to the candidate."
+                />
+              )}
+            </div>
           </div>
         </div>
         
@@ -133,9 +196,16 @@ Pickra AI Recruitment Team` : "";
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSendTest} disabled={sending} className="gap-2">
+          <Button 
+            onClick={handleSendTest} 
+            disabled={sending || generating || !message} 
+            className="gap-2"
+          >
             {sending ? (
-              <>Sending...</>
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending...
+              </>
             ) : (
               <>
                 <Send className="h-4 w-4" />

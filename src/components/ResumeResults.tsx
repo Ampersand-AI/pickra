@@ -16,9 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { parseResume as parseResumeOpenAI } from "@/utils/openaiApi";
-import { parseResume as parseResumeDeepseek } from "@/utils/deepseekApi";
-import { getActiveAIProvider } from "@/utils/openaiApi";
+import { parseResume } from "@/utils/openaiApi";
 import { cn } from "@/lib/utils";
 import SendTestDialog from "./SendTestDialog";
 
@@ -31,7 +29,6 @@ export default function ResumeResults() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sendTestDialogOpen, setSendTestDialogOpen] = useState(false);
   const [resumeForTest, setResumeForTest] = useState<any>(null);
-  const activeProvider = getActiveAIProvider();
   
   useEffect(() => {
     // Process resumes when there are unprocessed ones and a job requirement is selected
@@ -48,13 +45,8 @@ export default function ResumeResults() {
           // Process each unprocessed resume
           for (const resume of unprocessedResumes) {
             try {
-              // Use the appropriate API based on user's preference
-              let parsedData;
-              if (activeProvider === "openai") {
-                parsedData = await parseResumeOpenAI("Sample resume content", state.selectedJobRequirement);
-              } else {
-                parsedData = await parseResumeDeepseek("Sample resume content", state.selectedJobRequirement);
-              }
+              // Always use OpenAI for parsing
+              let parsedData = await parseResume("Sample resume content", state.selectedJobRequirement);
               
               dispatch({ 
                 type: "UPDATE_RESUME", 
@@ -211,13 +203,13 @@ export default function ResumeResults() {
               <Card 
                 key={resume.id} 
                 className={cn(
-                  "shadow-sm hover:shadow-md transition-all border border-border/40",
+                  "shadow-sm hover:shadow-md transition-all border border-border/40 h-full",
                   isHighMatch && "bg-green-50/10 border-green-200/30"
                 )}
               >
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-center">
-                    <CardTitle className="text-base flex items-center gap-1">
+                    <CardTitle className="text-base flex items-center gap-1 truncate">
                       {resume.processed && resume.extractedData?.name || resume.fileName}
                       {resume.testSent && (
                         <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
@@ -237,7 +229,7 @@ export default function ResumeResults() {
                       </div>
                     )}
                   </div>
-                  <CardDescription>
+                  <CardDescription className="truncate">
                     {resume.fileName}
                   </CardDescription>
                 </CardHeader>
@@ -285,7 +277,7 @@ export default function ResumeResults() {
                     </div>
                   )}
                 </CardContent>
-                <CardFooter className="flex justify-between pt-2">
+                <CardFooter className="flex justify-between pt-2 mt-auto">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -298,7 +290,7 @@ export default function ResumeResults() {
                   <div className="flex gap-2">
                     {resume.processed && isHighMatch && !resume.testSent && (
                       <Button
-                        variant="default"
+                        variant="outline"
                         size="sm"
                         onClick={() => handleSendTest(resume)}
                         className="gap-1"

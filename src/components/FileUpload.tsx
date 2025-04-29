@@ -8,9 +8,7 @@ import { Upload, FileText, AlertCircle, Loader2, File, X } from "lucide-react";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
 import { extractTextFromPDF } from "@/utils/pdfParser";
-import { getActiveAIProvider } from "@/utils/openaiApi";
-import { parseResume as parseResumeOpenAI } from "@/utils/openaiApi";
-import { parseResume as parseResumeDeepseek } from "@/utils/deepseekApi";
+import { parseResume } from "@/utils/openaiApi";
 
 const FileUpload = () => {
   const [isUploading, setIsUploading] = useState(false);
@@ -81,21 +79,12 @@ const FileUpload = () => {
           try {
             // Get file content as text or base64
             const fileContent = await readFileContent(file);
-            const activeProvider = getActiveAIProvider();
             
-            // Use the appropriate API based on user's preference
-            let parsedData;
-            if (activeProvider === "openai") {
-              parsedData = await parseResumeOpenAI(
-                fileContent,
-                state.selectedJobRequirement
-              );
-            } else {
-              parsedData = await parseResumeDeepseek(
-                fileContent,
-                state.selectedJobRequirement
-              );
-            }
+            // Always use OpenAI for parsing
+            const parsedData = await parseResume(
+              fileContent,
+              state.selectedJobRequirement
+            );
 
             if (parsedData.error) {
               toast({
@@ -189,9 +178,6 @@ const FileUpload = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const activeProvider = getActiveAIProvider();
-  const providerName = activeProvider === "openai" ? "OpenAI" : "DeepSeek";
-
   return (
     <Card className="shadow-lg border border-border/40 bg-card">
       <CardContent className="flex flex-col space-y-4 pt-4">
@@ -264,7 +250,7 @@ const FileUpload = () => {
                   Processing...
                 </>
               ) : (
-                <>Process Resumes with {providerName} AI</>
+                <>Process Resumes with OpenAI</>
               )}
             </Button>
           </div>
@@ -274,7 +260,7 @@ const FileUpload = () => {
           <div className="flex items-center justify-center space-x-2 py-2 bg-muted/30 rounded-md">
             <Loader2 className="h-4 w-4 animate-spin" />
             <p className="text-sm">
-              Uploading and parsing resumes with {providerName} AI...
+              Uploading and parsing resumes with OpenAI...
             </p>
           </div>
         )}
