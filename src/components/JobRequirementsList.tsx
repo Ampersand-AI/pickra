@@ -35,12 +35,12 @@ const JobRequirementsList = () => {
 
   if (state.jobRequirements.length === 0) {
     return (
-      <Card className="bg-muted/20 border border-border/40 shadow-sm">
-        <CardContent className="p-6 text-center flex flex-col items-center gap-2">
-          <div className="p-3 rounded-full bg-muted/50">
-            <BriefcaseIcon className="h-5 w-5 text-muted-foreground" />
+      <Card className="bg-card border border-border/40 shadow-sm overflow-hidden">
+        <CardContent className="p-6 text-center flex flex-col items-center gap-3">
+          <div className="p-3 rounded-full bg-primary/10">
+            <BriefcaseIcon className="h-5 w-5 text-primary" />
           </div>
-          <p className="text-muted-foreground">
+          <p className="font-medium text-foreground">
             No job requirements added yet
           </p>
           <p className="text-xs text-muted-foreground">
@@ -53,10 +53,10 @@ const JobRequirementsList = () => {
 
   return (
     <>
-      <Card className="shadow-md border border-border/40 overflow-hidden">
-        <CardHeader className="pb-2 px-4 pt-4">
+      <Card className="shadow-sm border border-border/40 overflow-hidden">
+        <CardHeader className="pb-2 px-4 pt-4 space-y-0.5">
           <CardTitle className="text-md flex items-center gap-2">
-            <BriefcaseIcon size={16} />
+            <BriefcaseIcon size={16} className="text-primary" />
             Job Requirements
           </CardTitle>
         </CardHeader>

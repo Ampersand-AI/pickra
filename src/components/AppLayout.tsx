@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileUpload from "@/components/FileUpload";
 import JobRequirements from "@/components/JobRequirements";
 import ResumeResults from "@/components/ResumeResults";
-import { Settings, ListChecks, PlusCircle, FileCheck2, FileText, BriefcaseIcon } from "lucide-react";
+import { Settings, ListChecks, PlusCircle, FileCheck2, FileText, BriefcaseIcon, Home } from "lucide-react";
 import JobRequirementsList from "@/components/JobRequirementsList";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { getActiveAIProvider } from "@/utils/openaiApi";
@@ -19,10 +19,10 @@ const AppLayout = () => {
   const providerName = activeProvider === "openai" ? "OpenAI" : "DeepSeek";
   
   return (
-    <div className="min-h-screen bg-muted/5">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       <div className="border-b border-border/40 bg-card shadow-sm">
         <div className="container py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <FileCheck2 className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold">Resume Match AI</h1>
             <div className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary hidden sm:block">
@@ -30,21 +30,33 @@ const AppLayout = () => {
             </div>
           </div>
           
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/settings')}
-            className="gap-1"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Settings</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/')}
+              className="gap-1"
+            >
+              <Home className="h-4 w-4" />
+              <span className="hidden sm:inline">Home</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/settings')}
+              className="gap-1"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
+          </div>
         </div>
       </div>
       
-      <div className="container py-6 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-4">
-            <div className="flex flex-col space-y-4">
+      <div className="container py-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            <div className="flex flex-col space-y-6">
               <JobRequirementsList />
               
               <Tabs
@@ -63,19 +75,19 @@ const AppLayout = () => {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="jobRequirements">
+                <TabsContent value="jobRequirements" className="mt-4 animate-fade-in">
                   <JobRequirements />
                 </TabsContent>
 
-                <TabsContent value="upload">
+                <TabsContent value="upload" className="mt-4 animate-fade-in">
                   <FileUpload />
                 </TabsContent>
               </Tabs>
             </div>
           </div>
 
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2 bg-card border border-border/40 rounded-lg p-3 shadow-sm">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex items-center gap-2 bg-card border border-border/40 rounded-lg p-4 shadow-sm">
               <ListChecks className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">Results</h2>
               {state.selectedJobRequirement && (
