@@ -107,7 +107,7 @@ const JobRequirementsList = () => {
           ))}
           
           {state.jobRequirements.length > 0 && !state.selectedJobRequirement && (
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-md text-xs flex items-center gap-2 mt-2">
+            <div className="p-3 bg-muted text-muted-foreground rounded-md text-xs flex items-center gap-2 mt-2">
               <Search size={14} />
               <span>Select a job requirement to upload resumes</span>
             </div>

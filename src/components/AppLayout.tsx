@@ -6,10 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileUpload from "@/components/FileUpload";
 import JobRequirements from "@/components/JobRequirements";
 import ResumeResults from "@/components/ResumeResults";
-import { Settings, ListChecks, PlusCircle, FileCheck2, FileText, BriefcaseIcon, Home } from "lucide-react";
+import { Settings, ListChecks, PlusCircle, FileCheck2, FileText, BriefcaseIcon, Home, Moon, Sun } from "lucide-react";
 import JobRequirementsList from "@/components/JobRequirementsList";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { getActiveAIProvider } from "@/utils/openaiApi";
+import { useTheme } from "@/components/theme-provider";
 
 const AppLayout = () => {
   const [activeTab, setActiveTab] = useState("jobRequirements");
@@ -17,10 +18,11 @@ const AppLayout = () => {
   const { state } = useResumeMatch();
   const activeProvider = getActiveAIProvider();
   const providerName = activeProvider === "openai" ? "OpenAI" : "DeepSeek";
+  const { theme, setTheme } = useTheme();
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-      <div className="border-b border-border/40 bg-card shadow-sm">
+    <div className="min-h-screen bg-background">
+      <div className="border-b border-border/40 bg-card/50 shadow-sm">
         <div className="container py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <FileCheck2 className="h-6 w-6 text-primary" />
@@ -31,6 +33,15 @@ const AppLayout = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="mr-1"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+          
             <Button 
               variant="ghost" 
               size="sm"

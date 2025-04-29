@@ -4,13 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, X, BadgeCheck, BriefcaseIcon, GraduationCap } from "lucide-react";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
 import { getActiveAIProvider } from "@/utils/openaiApi";
 import { generateJobProfile as generateJobProfileOpenAI } from "@/utils/openaiApi";
 import { generateJobProfile as generateJobProfileDeepseek } from "@/utils/deepseekApi";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { Progress } from "@/components/ui/progress";
 
 const JobRequirements = () => {
   const { state, dispatch } = useResumeMatch();
@@ -24,6 +33,7 @@ const JobRequirements = () => {
   const { toast } = useToast();
   const activeProvider = getActiveAIProvider();
   const providerName = activeProvider === "openai" ? "OpenAI" : "DeepSeek";
+  const form = useForm();
 
   const handleAddSkill = () => {
     if (!currentSkill.trim()) return;
@@ -140,119 +150,178 @@ const JobRequirements = () => {
           New Job Requirement
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Job Title</label>
-          <Input
-            type="text"
-            placeholder="Enter job title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="bg-muted/20"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Job Description</label>
-          <Textarea
-            placeholder="Enter job description"
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="bg-muted/20 resize-none"
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <div className="w-1/2 space-y-2">
-            <label className="text-sm font-medium flex items-center gap-1.5">
-              <GraduationCap className="h-3 w-3" />
-              Required Education
-            </label>
-            <select
-              value={education}
-              onChange={(e) => setEducation(e.target.value)}
-              className="w-full rounded-md border border-border bg-muted/20 p-2 text-sm"
-            >
-              <option value="High School">High School</option>
-              <option value="Associate's">Associate's</option>
-              <option value="Bachelor's">Bachelor's</option>
-              <option value="Master's">Master's</option>
-              <option value="PhD">PhD</option>
-            </select>
-          </div>
-
-          <div className="w-1/2 space-y-2">
-            <label className="text-sm font-medium">Required Experience (Years)</label>
-            <Input
-              type="number"
-              min={0}
-              max={20}
-              value={experienceYears}
-              onChange={(e) => setExperienceYears(parseInt(e.target.value) || 0)}
-              className="bg-muted/20"
+      <CardContent className="space-y-5">
+        <Form {...form}>
+          <div className="space-y-4">
+            <FormField
+              name="jobTitle"
+              render={() => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">Job Title</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder="Enter job title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="bg-background"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
             />
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-1.5">
-            <BadgeCheck className="h-3 w-3" />
-            Required Skills
-          </label>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              placeholder="Add a skill"
-              value={currentSkill}
-              onChange={(e) => setCurrentSkill(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
-              className="bg-muted/20"
+            <FormField
+              name="jobDescription"
+              render={() => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">Job Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter job description"
+                      rows={3}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="bg-background resize-none"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
             />
-            <Button onClick={handleAddSkill} type="button" variant="secondary">Add</Button>
-          </div>
-          
-          {skills.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2 p-2 bg-muted/20 rounded-md border border-border/20">
-              {skills.map((skill, index) => (
-                <div 
-                  key={index} 
-                  className="bg-muted/40 text-foreground px-2 py-1 rounded-md text-xs flex items-center gap-1 border border-border/20"
-                >
-                  {skill.name}
-                  <button 
-                    onClick={() => handleRemoveSkill(index)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                name="education"
+                render={() => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium flex items-center gap-1.5">
+                      <GraduationCap className="h-3 w-3" />
+                      Education Level
+                    </FormLabel>
+                    <FormControl>
+                      <select
+                        value={education}
+                        onChange={(e) => setEducation(e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="High School">High School</option>
+                        <option value="Associate's">Associate's</option>
+                        <option value="Bachelor's">Bachelor's</option>
+                        <option value="Master's">Master's</option>
+                        <option value="PhD">PhD</option>
+                      </select>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                name="experience"
+                render={() => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Experience (Years)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={20}
+                        value={experienceYears}
+                        onChange={(e) => setExperienceYears(parseInt(e.target.value) || 0)}
+                        className="bg-background"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </div>
-          )}
-        </div>
 
-        <div className="flex justify-between pt-2 space-x-3">
-          <Button
-            variant="outline"
-            onClick={handleGenerateDescription}
-            disabled={isGenerating || !title.trim()}
-            className="flex-1"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate with {providerName}
-              </>
-            )}
-          </Button>
-          <Button onClick={handleSave} disabled={!title || !description || skills.length === 0} className="flex-1">Save Job</Button>
-        </div>
+            <FormField
+              name="skills"
+              render={() => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium flex items-center gap-1.5">
+                    <BadgeCheck className="h-3 w-3" />
+                    Required Skills
+                  </FormLabel>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Add a skill"
+                      value={currentSkill}
+                      onChange={(e) => setCurrentSkill(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddSkill()}
+                      className="bg-background"
+                    />
+                    <Button 
+                      onClick={handleAddSkill} 
+                      type="button" 
+                      variant="secondary"
+                      size="sm"
+                      className="h-10"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  
+                  {skills.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3 p-3 bg-background/50 rounded-md border border-border">
+                      {skills.map((skill, index) => (
+                        <div 
+                          key={index} 
+                          className="bg-muted/40 text-foreground px-2 py-1 rounded-md text-xs flex items-center gap-1.5 border border-border"
+                        >
+                          {skill.name}
+                          <button 
+                            onClick={() => handleRemoveSkill(index)}
+                            className="text-muted-foreground hover:text-destructive focus:outline-none"
+                            type="button"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-between pt-2 space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleGenerateDescription}
+                disabled={isGenerating || !title.trim()}
+                className="flex-1"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span className="flex-1 text-center">
+                      Generating...
+                      <Progress 
+                        value={100} 
+                        className="h-1 mt-1"
+                        indicatorClassName="animate-pulse"
+                      />
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generate with {providerName}
+                  </>
+                )}
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={!title || !description || skills.length === 0} 
+                className="flex-1"
+              >
+                Save Job
+              </Button>
+            </div>
+          </div>
+        </Form>
       </CardContent>
     </Card>
   );
