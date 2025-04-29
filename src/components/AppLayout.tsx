@@ -10,14 +10,10 @@ import { Settings } from "lucide-react";
 
 const AppLayout = () => {
   const [activeTab, setActiveTab] = useState("jobRequirements");
-  const [files, setFiles] = useState<File[]>([]);
   const navigate = useNavigate();
 
-  const handleFilesProcessed = (newFiles: File[]) => {
-    setFiles((prevFiles) => [...prevFiles, ...newFiles]);
-    setActiveTab("results");
-  };
-
+  // Remove the files state and handleFilesProcessed function since we don't need them
+  
   return (
     <div className="container py-6">
       <div className="flex justify-between items-center mb-6">
@@ -47,7 +43,8 @@ const AppLayout = () => {
           </TabsContent>
 
           <TabsContent value="upload">
-            <FileUpload onFilesProcessed={handleFilesProcessed} />
+            {/* Remove the onFilesProcessed prop */}
+            <FileUpload />
           </TabsContent>
         </Tabs>
 
