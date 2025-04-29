@@ -6,13 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileUpload from "@/components/FileUpload";
 import JobRequirements from "@/components/JobRequirements";
 import ResumeResults from "@/components/ResumeResults";
-import { Settings } from "lucide-react";
+import { Settings, ListChecks } from "lucide-react";
+import JobRequirementsList from "@/components/JobRequirementsList";
+import { useResumeMatch } from "@/context/ResumeMatchContext";
 
 const AppLayout = () => {
   const [activeTab, setActiveTab] = useState("jobRequirements");
   const navigate = useNavigate();
-
-  // Remove the files state and handleFilesProcessed function since we don't need them
+  const { state } = useResumeMatch();
   
   return (
     <div className="container py-6">
@@ -27,28 +28,42 @@ const AppLayout = () => {
         </Button>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-4"
-        >
-          <TabsList className="grid grid-cols-2 mb-4">
-            <TabsTrigger value="jobRequirements">Job Requirements</TabsTrigger>
-            <TabsTrigger value="upload">Upload Resumes</TabsTrigger>
-          </TabsList>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <div className="space-y-4">
+            <JobRequirementsList />
+            
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="space-y-4"
+            >
+              <TabsList className="grid grid-cols-2 mb-4">
+                <TabsTrigger value="jobRequirements">Add Job</TabsTrigger>
+                <TabsTrigger value="upload">Upload CVs</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="jobRequirements">
-            <JobRequirements />
-          </TabsContent>
+              <TabsContent value="jobRequirements">
+                <JobRequirements />
+              </TabsContent>
 
-          <TabsContent value="upload">
-            {/* Remove the onFilesProcessed prop */}
-            <FileUpload />
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="upload">
+                <FileUpload />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
 
-        <div className="space-y-4">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ListChecks className="h-5 w-5" />
+            <h2 className="text-xl font-semibold">Results</h2>
+            {state.selectedJobRequirement && (
+              <div className="text-sm bg-secondary rounded-full px-3 py-1">
+                Job: {state.selectedJobRequirement.title}
+              </div>
+            )}
+          </div>
           <ResumeResults />
         </div>
       </div>
