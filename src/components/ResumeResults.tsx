@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { 
@@ -9,9 +8,78 @@ import { Button } from "@/components/ui/button";
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from "@/components/ui/dialog";
-import { FileX, Search, CircleCheck, CirclePercent } from "lucide-react";
+import { FileX, Search, CircleCheck, CirclePercent, Settings } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { parseResume, getOpenAIApiKey } from "@/utils/openai";
+import { useNavigate } from "react-router-dom";
 
+const processResumes = async (
+  resumes: any[],
+  jobRequirement: any
+): Promise<any[]> => {
+  // Check if we have an API key
+  const apiKey = getOpenAIApiKey();
+  
+  if (!apiKey) {
+    // Fall back to mock processing
+    return mockProcessResumes(resumes, jobRequirement);
+  }
+  
+  const processedResumes = [];
+  
+  for (const resume of resumes) {
+    if (resume.processed) {
+      processedResumes.push(resume);
+      continue;
+    }
+    
+    try {
+      // For a real app, we would extract text from PDFs here
+      // This is a mock implementation
+      const fileContent = `Mock resume content for ${resume.fileName}`;
+      
+      const parsedData = await parseResume(fileContent, jobRequirement);
+      
+      const processedResume = {
+        ...resume,
+        processed: true,
+        matchPercentage: parsedData.matchPercentage,
+        matchReason: parsedData.matchReason,
+        extractedData: {
+          name: parsedData.name,
+          email: parsedData.email,
+          phone: parsedData.phone,
+          skills: parsedData.skills,
+          experience: parsedData.experience,
+          education: parsedData.education
+        }
+      };
+      
+      processedResumes.push(processedResume);
+    } catch (error) {
+      console.error(`Error processing resume ${resume.fileName}:`, error);
+      
+      // Add the resume with error status
+      processedResumes.push({
+        ...resume,
+        processed: true,
+        matchPercentage: 0,
+        matchReason: "Error processing resume",
+        extractedData: {
+          name: "Error",
+          email: "error@processing.com",
+          skills: ["Error processing resume"],
+          experience: [],
+          education: []
+        }
+      });
+    }
+  }
+  
+  return processedResumes;
+};
+
+// Keep the mock function for fallback
 const mockProcessResumes = async (
   resumes: any[],
   jobRequirement: any
@@ -67,6 +135,7 @@ const mockProcessResumes = async (
       ...resume,
       processed: true,
       matchPercentage,
+      matchReason: "Mock AI processing result",
       extractedData
     };
   });
@@ -75,6 +144,7 @@ const mockProcessResumes = async (
 export default function ResumeResults() {
   const { state, dispatch } = useResumeMatch();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [sortBy, setSortBy] = useState<"name" | "match">("match");
   const [selectedResume, setSelectedResume] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -87,11 +157,31 @@ export default function ResumeResults() {
       state.selectedJobRequirement && 
       !state.isProcessing
     ) {
-      const processResumes = async () => {
+      const processResumeData = async () => {
         dispatch({ type: "SET_PROCESSING", payload: true });
         
         try {
-          const processedResumes = await mockProcessResumes(
+          // Check if OpenAI API key is available
+          const apiKey = getOpenAIApiKey();
+          if (!apiKey) {
+            toast({
+              title: "API Key Required",
+              description: (
+                <div className="space-y-2">
+                  <p>An OpenAI API key is required for resume processing.</p>
+                  <Button size="sm" variant="outline" onClick={() => navigate("/settings")}>
+                    Go to Settings
+                  </Button>
+                </div>
+              ),
+              variant: "destructive",
+            });
+            
+            // Still proceed with mock processing
+            console.log("Using mock processing due to missing API key");
+          }
+          
+          const processedResumes = await processResumes(
             unprocessedResumes,
             state.selectedJobRequirement
           );
@@ -106,6 +196,7 @@ export default function ResumeResults() {
             description: `${processedResumes.length} resume(s) analyzed successfully.`
           });
         } catch (error) {
+          console.error("Error processing resumes:", error);
           dispatch({ 
             type: "SET_ERROR", 
             payload: "Failed to process resumes. Please try again." 
@@ -121,7 +212,7 @@ export default function ResumeResults() {
         }
       };
       
-      processResumes();
+      processResumeData();
     }
   }, [state.resumes, state.selectedJobRequirement]);
 
@@ -148,6 +239,15 @@ export default function ResumeResults() {
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Resume Results</h2>
         <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate("/settings")}
+            className="mr-2"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            Settings
+          </Button>
           <label htmlFor="sort" className="text-sm">Sort by:</label>
           <select
             id="sort"
@@ -287,6 +387,13 @@ export default function ResumeResults() {
                   </span>
                 </div>
               </div>
+              
+              {selectedResume.matchReason && (
+                <div className="bg-secondary/30 p-3 rounded-md">
+                  <h4 className="text-sm font-medium mb-1">Match Analysis</h4>
+                  <p className="text-xs text-muted-foreground">{selectedResume.matchReason}</p>
+                </div>
+              )}
               
               <div>
                 <h4 className="text-sm font-medium mb-2">Skills</h4>

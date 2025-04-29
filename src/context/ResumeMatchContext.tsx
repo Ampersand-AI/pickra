@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer } from "react";
 
 export type JobRequirement = {
@@ -17,6 +16,7 @@ export type Resume = {
   uploadDate: Date;
   processed: boolean;
   matchPercentage?: number;
+  matchReason?: string;
   extractedData?: {
     name: string;
     email: string;
@@ -56,6 +56,7 @@ const initialState: AppState = {
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
+    
     case "ADD_JOB_REQUIREMENT":
       return {
         ...state,

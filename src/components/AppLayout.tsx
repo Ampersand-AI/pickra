@@ -1,55 +1,62 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import FileUpload from "./FileUpload";
-import JobRequirements from "./JobRequirements";
-import ResumeResults from "./ResumeResults";
+import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FileUpload from "@/components/FileUpload";
+import JobRequirements from "@/components/JobRequirements";
+import ResumeResults from "@/components/ResumeResults";
+import { Settings } from "lucide-react";
 
-export default function AppLayout() {
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+const AppLayout = () => {
+  const [activeTab, setActiveTab] = useState("jobRequirements");
+  const [files, setFiles] = useState<File[]>([]);
+  const navigate = useNavigate();
 
-  const handleFilesProcessed = (files: File[]) => {
-    setUploadedFiles((prev) => [...prev, ...files]);
+  const handleFilesProcessed = (newFiles: File[]) => {
+    setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    setActiveTab("results");
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border py-4">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <CirclePercent className="h-6 w-6 mr-2" />
-            <h1 className="text-xl font-bold text-gradient">ResumeMatcher</h1>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-8">
-            <section className="p-6 bg-card rounded-lg border border-border">
-              <FileUpload onFilesProcessed={handleFilesProcessed} />
-            </section>
-            
-            <section className="p-6 bg-card rounded-lg border border-border">
-              <JobRequirements />
-            </section>
-          </div>
-          
-          <div>
-            <section className="p-6 bg-card rounded-lg border border-border">
-              <ResumeResults />
-            </section>
-          </div>
-        </div>
-      </main>
+    <div className="container py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Resume Match AI</h1>
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/settings')}
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Settings
+        </Button>
+      </div>
       
-      <footer className="border-t border-border py-4 mt-auto">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          ResumeMatcher © {new Date().getFullYear()} | AI-powered resume matching application
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
+          <TabsList className="grid grid-cols-2 mb-4">
+            <TabsTrigger value="jobRequirements">Job Requirements</TabsTrigger>
+            <TabsTrigger value="upload">Upload Resumes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="jobRequirements">
+            <JobRequirements />
+          </TabsContent>
+
+          <TabsContent value="upload">
+            <FileUpload onFilesProcessed={handleFilesProcessed} />
+          </TabsContent>
+        </Tabs>
+
+        <div className="space-y-4">
+          <ResumeResults />
         </div>
-      </footer>
+      </div>
     </div>
   );
-}
+};
 
-import { CirclePercent } from "lucide-react";
+export default AppLayout;

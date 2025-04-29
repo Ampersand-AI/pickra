@@ -1,7 +1,8 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +12,19 @@ import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { 
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle 
 } from "@/components/ui/card";
-import { CirclePlus, CircleMinus, FileText, CircleX } from "lucide-react";
+import { CirclePlus, CircleMinus, FileText, CircleX, Loader2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { generateJobProfile, getOpenAIApiKey } from "@/utils/openai";
+import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 
 export default function JobRequirements() {
   const { state, dispatch } = useResumeMatch();
   const [isOpen, setIsOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
   const [currentJob, setCurrentJob] = useState<null | {
     id: string;
     title: string;
@@ -89,6 +97,91 @@ export default function JobRequirements() {
     }
   };
 
+  const handleTitleChange = async (title: string) => {
+    if (currentJob) {
+      setCurrentJob({
+        ...currentJob,
+        title
+      });
+      
+      // Auto-generate if title is at least 5 characters and API key exists
+      if (title.length >= 5 && !isGenerating) {
+        const apiKey = getOpenAIApiKey();
+        if (!apiKey) {
+          toast({
+            title: "API Key Required",
+            description: (
+              <div className="space-y-2">
+                <p>An OpenAI API key is required for auto-generation.</p>
+                <Button size="sm" variant="outline" onClick={() => navigate("/settings")}>
+                  Go to Settings
+                </Button>
+              </div>
+            ),
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        await handleAutoGenerate(title);
+      }
+    }
+  };
+
+  const handleAutoGenerate = async (titleToUse?: string) => {
+    if (!currentJob) return;
+    
+    const title = titleToUse || currentJob.title;
+    
+    if (title.length < 3) {
+      toast({
+        title: "Title Too Short",
+        description: "Please enter a more specific job title for better generation results.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      const generatedProfile = await generateJobProfile(title);
+      
+      if (generatedProfile.error) {
+        toast({
+          title: "Generation Failed",
+          description: generatedProfile.error,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setCurrentJob({
+        ...currentJob,
+        description: generatedProfile.description,
+        skills: generatedProfile.skills.length > 0 ? 
+          generatedProfile.skills : 
+          [{ name: "", weight: 1 }],
+        experience: generatedProfile.experience,
+        education: generatedProfile.education,
+      });
+      
+      toast({
+        title: "Profile Generated",
+        description: "Job profile details have been automatically generated.",
+      });
+    } catch (error) {
+      console.error("Error generating job profile:", error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate job profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (!currentJob || !currentJob.title) return;
 
@@ -120,13 +213,16 @@ export default function JobRequirements() {
               New Job Profile
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {currentJob && state.jobRequirements.some(job => job.id === currentJob.id)
                   ? "Edit Job Profile"
                   : "Create Job Profile"}
               </DialogTitle>
+              <DialogDescription>
+                Enter a job title and the system will automatically generate a profile, or fill in the details manually.
+              </DialogDescription>
             </DialogHeader>
             {currentJob && (
               <div className="space-y-4">
@@ -135,12 +231,27 @@ export default function JobRequirements() {
                   <Input
                     id="title"
                     value={currentJob.title}
-                    onChange={(e) => setCurrentJob({
-                      ...currentJob,
-                      title: e.target.value
-                    })}
+                    onChange={(e) => handleTitleChange(e.target.value)}
                     placeholder="e.g. Senior React Developer"
                   />
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAutoGenerate()}
+                    disabled={isGenerating || !currentJob.title}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      "Auto Generate Profile"
+                    )}
+                  </Button>
                 </div>
                 
                 <div className="space-y-2">
