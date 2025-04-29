@@ -26,7 +26,7 @@ const AppLayout = () => {
         <div className="container py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <FileCheck2 className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">Resume Match AI</h1>
+            <h1 className="text-xl font-bold">Pickra AI</h1>
             <div className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary hidden sm:block">
               Using {providerName}
             </div>

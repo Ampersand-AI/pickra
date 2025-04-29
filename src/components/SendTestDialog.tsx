@@ -1,0 +1,150 @@
+
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Resume } from "@/context/ResumeMatchContext";
+import { v4 as uuidv4 } from "uuid";
+
+interface SendTestDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  resume: Resume | null;
+  jobTitle: string;
+  onSendTest: (resumeId: string, testLink: string) => void;
+}
+
+export default function SendTestDialog({
+  open,
+  onOpenChange,
+  resume,
+  jobTitle,
+  onSendTest
+}: SendTestDialogProps) {
+  const { toast } = useToast();
+  const [sending, setSending] = useState(false);
+  
+  // Generate a unique test link for this candidate
+  const testId = uuidv4().substring(0, 8);
+  const testLink = `https://pickra.ai/test/${testId}`;
+  
+  // Pre-filled message template
+  const defaultMessage = resume ? 
+    `Dear ${resume.extractedData?.name || "Candidate"},
+
+We were impressed with your profile for the ${jobTitle} position. As the next step in our evaluation process, we'd like you to complete a brief assessment.
+
+Please click the link below to access your test:
+${testLink}
+
+This assessment will help us understand your skills and experience better. The test should take approximately 30 minutes to complete.
+
+Thank you for your interest in our company. We look forward to reviewing your results.
+
+Best regards,
+Pickra AI Recruitment Team` : "";
+  
+  const [message, setMessage] = useState(defaultMessage);
+  
+  const handleSendTest = async () => {
+    if (!resume) return;
+    
+    setSending(true);
+    
+    try {
+      // In a real app, this would send an actual email
+      // For now we'll just simulate the process with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Call the parent handler to update the resume with test info
+      onSendTest(resume.id, testLink);
+      
+      toast({
+        title: "Test invitation sent",
+        description: `An assessment invitation has been sent to ${resume.extractedData?.email}`,
+      });
+      
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to send test",
+        description: "There was a problem sending the test invitation. Please try again.",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Send Assessment Test</DialogTitle>
+          <DialogDescription>
+            Send an assessment test to the candidate. The email will include a link to the test.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input
+              id="name"
+              value={resume?.extractedData?.name || ""}
+              className="col-span-3"
+              readOnly
+            />
+          </div>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="email" className="text-right">
+              Email
+            </Label>
+            <Input
+              id="email"
+              value={resume?.extractedData?.email || ""}
+              className="col-span-3"
+              readOnly
+            />
+          </div>
+          
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="message" className="text-right pt-2">
+              Message
+            </Label>
+            <Textarea
+              id="message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="col-span-3 min-h-[200px]"
+              placeholder="Enter your message to the candidate."
+            />
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSendTest} disabled={sending} className="gap-2">
+            {sending ? (
+              <>Sending...</>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Send Test
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

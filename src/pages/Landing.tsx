@@ -13,7 +13,7 @@ const Landing = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <FileCheck2 className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">Resume Match AI</h1>
+            <h1 className="text-xl font-bold">Pickra AI</h1>
           </div>
           <Button 
             variant="outline" 
@@ -158,9 +158,9 @@ const Landing = () => {
         <div className="container text-center text-muted-foreground">
           <div className="flex items-center justify-center gap-2 mb-4">
             <FileCheck2 className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-lg">Resume Match AI</h3>
+            <h3 className="font-bold text-lg">Pickra AI</h3>
           </div>
-          <p className="text-sm">© {new Date().getFullYear()} Resume Match AI. All rights reserved.</p>
+          <p className="text-sm">© {new Date().getFullYear()} Pickra AI. All rights reserved.</p>
         </div>
       </footer>
     </div>

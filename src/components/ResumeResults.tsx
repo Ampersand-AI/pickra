@@ -12,14 +12,15 @@ import {
 import { 
   FileX, Search, CircleCheck, CirclePercent, Settings, 
   FileQuestion, Loader2, UserCircle, Mail, Phone, BadgeCheck, GraduationCap, 
-  Building2, Calendar, BarChart, ChevronRight 
+  Building2, Calendar, BarChart, ChevronRight, Send 
 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { parseResume as parseResumeOpenAI } from "@/utils/openaiApi";
 import { parseResume as parseResumeDeepseek } from "@/utils/deepseekApi";
 import { getActiveAIProvider } from "@/utils/openaiApi";
 import { cn } from "@/lib/utils";
+import SendTestDialog from "./SendTestDialog";
 
 export default function ResumeResults() {
   const { state, dispatch } = useResumeMatch();
@@ -28,6 +29,8 @@ export default function ResumeResults() {
   const [sortBy, setSortBy] = useState<"name" | "match">("match");
   const [selectedResume, setSelectedResume] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sendTestDialogOpen, setSendTestDialogOpen] = useState(false);
+  const [resumeForTest, setResumeForTest] = useState<any>(null);
   const activeProvider = getActiveAIProvider();
   
   useEffect(() => {
@@ -125,6 +128,18 @@ export default function ResumeResults() {
     setDialogOpen(true);
   };
   
+  const handleSendTest = (resume: any) => {
+    setResumeForTest(resume);
+    setSendTestDialogOpen(true);
+  };
+  
+  const handleTestSent = (resumeId: string, testLink: string) => {
+    dispatch({
+      type: "SEND_TEST",
+      payload: { resumeId, testLink }
+    });
+  };
+  
   // Sort resumes based on selected sort method
   const sortedResumes = [...state.resumes].sort((a, b) => {
     if (sortBy === "match") {
@@ -190,19 +205,25 @@ export default function ResumeResults() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sortedResumes.map((resume) => {
             const matchInfo = resume.processed ? getMatchLevelInfo(resume.matchPercentage) : null;
+            const isHighMatch = resume.processed && resume.matchPercentage >= 80;
             
             return (
               <Card 
                 key={resume.id} 
                 className={cn(
                   "shadow-sm hover:shadow-md transition-all border border-border/40",
-                  resume.processed && resume.matchPercentage > 70 && "bg-green-50/10 border-green-200/30"
+                  isHighMatch && "bg-green-50/10 border-green-200/30"
                 )}
               >
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-center">
                     <CardTitle className="text-base flex items-center gap-1">
                       {resume.processed && resume.extractedData?.name || resume.fileName}
+                      {resume.testSent && (
+                        <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                          Test Sent
+                        </span>
+                      )}
                     </CardTitle>
                     {resume.processed && (
                       <div 
@@ -274,17 +295,30 @@ export default function ResumeResults() {
                     <FileX className="h-4 w-4 mr-1" />
                     Remove
                   </Button>
-                  {resume.processed && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleViewDetails(resume)}
-                      className="gap-1"
-                    >
-                      View Details
-                      <ChevronRight className="h-3 w-3" />
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {resume.processed && isHighMatch && !resume.testSent && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleSendTest(resume)}
+                        className="gap-1"
+                      >
+                        <Send className="h-3 w-3" />
+                        Send Test
+                      </Button>
+                    )}
+                    {resume.processed && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(resume)}
+                        className="gap-1"
+                      >
+                        View Details
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </CardFooter>
               </Card>
             );
@@ -311,6 +345,12 @@ export default function ResumeResults() {
                     <h3 className="font-medium text-xl flex items-center gap-1.5">
                       <UserCircle className="h-5 w-5 text-primary" />
                       {selectedResume.extractedData?.name || "Unnamed Candidate"}
+                      
+                      {selectedResume.testSent && (
+                        <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                          Test Sent
+                        </span>
+                      )}
                     </h3>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
                       {selectedResume.extractedData?.email && (
@@ -347,6 +387,23 @@ export default function ResumeResults() {
                     </span>
                   </div>
                 </div>
+                
+                {/* Test Link Section */}
+                {selectedResume.testSent && selectedResume.testLink && (
+                  <div className="bg-primary/5 p-4 rounded-md border border-primary/20">
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                      <CircleCheck className="h-4 w-4 text-primary" />
+                      Assessment Test Status
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      A skills assessment test was sent to this candidate on{" "}
+                      {selectedResume.testSentDate ? new Date(selectedResume.testSentDate).toLocaleDateString() : "recently"}.
+                    </p>
+                    <p className="text-sm font-medium">
+                      Test link: <a href={selectedResume.testLink} className="text-primary hover:underline">{selectedResume.testLink}</a>
+                    </p>
+                  </div>
+                )}
                 
                 {/* Match Analysis */}
                 {selectedResume.matchReason && (
@@ -429,11 +486,36 @@ export default function ResumeResults() {
                     <p className="text-sm text-muted-foreground">No education data found</p>
                   )}
                 </div>
+                
+                {/* Send Test Button (if not sent already and high match) */}
+                {!selectedResume.testSent && selectedResume.matchPercentage >= 80 && (
+                  <div className="pt-4 flex justify-end">
+                    <Button onClick={() => {
+                      setDialogOpen(false);
+                      setTimeout(() => {
+                        setResumeForTest(selectedResume);
+                        setSendTestDialogOpen(true);
+                      }, 100);
+                    }} className="gap-2">
+                      <Send className="h-4 w-4" />
+                      Send Assessment Test
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>
         </Dialog>
       )}
+      
+      {/* Send Test Dialog */}
+      <SendTestDialog
+        open={sendTestDialogOpen}
+        onOpenChange={setSendTestDialogOpen}
+        resume={resumeForTest}
+        jobTitle={state.selectedJobRequirement?.title || ""}
+        onSendTest={handleTestSent}
+      />
     </div>
   );
 }

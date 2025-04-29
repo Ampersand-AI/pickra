@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
+import Test from "./pages/Test";
 
 // Create a QueryClient instance outside the component to avoid re-creation on each render
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => {
               <Route path="/" element={<Landing />} />
               <Route path="/app" element={<Index />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/test/:testId" element={<Test />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

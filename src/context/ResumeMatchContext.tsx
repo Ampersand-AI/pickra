@@ -17,6 +17,9 @@ export type Resume = {
   processed: boolean;
   matchPercentage?: number;
   matchReason?: string;
+  testSent?: boolean;
+  testSentDate?: Date;
+  testLink?: string;
   extractedData?: {
     name: string;
     email: string;
@@ -44,7 +47,8 @@ type Action =
   | { type: "UPDATE_RESUME"; payload: Resume }
   | { type: "DELETE_RESUME"; payload: string }
   | { type: "SET_PROCESSING"; payload: boolean }
-  | { type: "SET_ERROR"; payload: string | null };
+  | { type: "SET_ERROR"; payload: string | null }
+  | { type: "SEND_TEST"; payload: { resumeId: string, testLink: string } };
 
 const initialState: AppState = {
   jobRequirements: [],
@@ -116,6 +120,20 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         error: action.payload,
+      };
+    case "SEND_TEST":
+      return {
+        ...state,
+        resumes: state.resumes.map((resume) =>
+          resume.id === action.payload.resumeId
+            ? {
+                ...resume,
+                testSent: true,
+                testSentDate: new Date(),
+                testLink: action.payload.testLink,
+              }
+            : resume
+        ),
       };
     default:
       return state;
