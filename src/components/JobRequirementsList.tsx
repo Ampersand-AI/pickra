@@ -2,7 +2,9 @@
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Trash } from "lucide-react";
+import { 
+  Check, Trash, BriefcaseIcon, ChevronRight, Search, PlusCircle 
+} from "lucide-react";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 const JobRequirementsList = () => {
   const { state, dispatch } = useResumeMatch();
@@ -32,10 +35,16 @@ const JobRequirementsList = () => {
 
   if (state.jobRequirements.length === 0) {
     return (
-      <Card className="bg-muted/50">
-        <CardContent className="p-6 text-center">
+      <Card className="bg-muted/20 border border-border/40 shadow-sm">
+        <CardContent className="p-6 text-center flex flex-col items-center gap-2">
+          <div className="p-3 rounded-full bg-muted/50">
+            <BriefcaseIcon className="h-5 w-5 text-muted-foreground" />
+          </div>
           <p className="text-muted-foreground">
-            No job requirements added yet. Create a new job requirement to get started.
+            No job requirements added yet
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Create a new job requirement to get started
           </p>
         </CardContent>
       </Card>
@@ -44,39 +53,65 @@ const JobRequirementsList = () => {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-md">Saved Job Requirements</CardTitle>
+      <Card className="shadow-md border border-border/40 overflow-hidden">
+        <CardHeader className="pb-2 px-4 pt-4">
+          <CardTitle className="text-md flex items-center gap-2">
+            <BriefcaseIcon size={16} />
+            Job Requirements
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 pt-0">
+        <CardContent className="space-y-1 p-2">
           {state.jobRequirements.map((job) => (
             <div 
               key={job.id}
-              className={`flex items-center justify-between p-3 rounded-md border ${
+              onClick={() => handleSelectJob(job.id)}
+              className={cn(
+                "px-3 py-2 rounded-md transition-all cursor-pointer",
+                "flex items-center justify-between gap-2",
                 state.selectedJobRequirement?.id === job.id 
-                  ? "bg-primary/10 border-primary" 
-                  : "bg-card border-border hover:bg-muted/50"
-              }`}
+                  ? "bg-primary/10 border-primary shadow-sm" 
+                  : "hover:bg-muted/50"
+              )}
             >
-              <div className="truncate flex-1 cursor-pointer" onClick={() => handleSelectJob(job.id)}>
-                <p className="font-medium">{job.title}</p>
-                <p className="text-xs text-muted-foreground truncate">{job.skills.map(s => s.name).join(", ")}</p>
+              <div className="truncate flex-1">
+                <div className="flex items-center">
+                  <p className="font-medium text-sm">
+                    {job.title}
+                  </p>
+                  {state.selectedJobRequirement?.id === job.id && (
+                    <Check size={14} className="ml-1 text-primary" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate max-w-[240px]">
+                  {job.skills.map(s => s.name).join(" • ")}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                {state.selectedJobRequirement?.id === job.id && (
-                  <Check size={16} className="text-primary" />
+              
+              <div className="flex items-center">
+                {state.selectedJobRequirement?.id !== job.id && (
+                  <ChevronRight size={16} className="text-muted-foreground/50" />
                 )}
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-7 w-7"
-                  onClick={() => setDeleteJobId(job.id)}
+                  className="h-7 w-7 ml-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteJobId(job.id);
+                  }}
                 >
                   <Trash size={14} className="text-muted-foreground hover:text-destructive" />
                 </Button>
               </div>
             </div>
           ))}
+          
+          {state.jobRequirements.length > 0 && !state.selectedJobRequirement && (
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-md text-xs flex items-center gap-2 mt-2">
+              <Search size={14} />
+              <span>Select a job requirement to upload resumes</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
