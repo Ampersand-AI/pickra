@@ -8,10 +8,10 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 
+// Create a QueryClient instance outside the component to avoid re-creation on each render
+const queryClient = new QueryClient();
+
 const App = () => {
-  // Create a new QueryClient instance inside the component
-  const queryClient = new QueryClient();
-  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
