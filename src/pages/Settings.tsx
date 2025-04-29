@@ -6,58 +6,92 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Eye, EyeOff, Check } from "lucide-react";
+import { Eye, EyeOff, Check, ArrowLeft, Loader2 } from "lucide-react";
+import { testDeepseekConnection } from "@/utils/deepseekApi";
+import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
   const [apiKey, setApiKey] = useState<string>(() => {
-    const savedKey = localStorage.getItem("openai_api_key");
+    const savedKey = localStorage.getItem("deepseek_api_key");
     return savedKey || "";
   });
   
   const [model, setModel] = useState<string>(() => {
-    const savedModel = localStorage.getItem("openai_model");
-    return savedModel || "gpt-4o";
+    const savedModel = localStorage.getItem("deepseek_model");
+    return savedModel || "deepseek-chat";
   });
   
   const [showApiKey, setShowApiKey] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
+  const [testing, setTesting] = useState(false);
   const { toast } = useToast();
-
-  const handleSave = () => {
-    if (apiKey) {
-      localStorage.setItem("openai_api_key", apiKey);
-      localStorage.setItem("openai_model", model);
-      setSaveStatus("saved");
-      
-      toast({
-        title: "Settings saved",
-        description: "Your API key and model preferences have been saved.",
-      });
-      
-      // Reset status after 3 seconds
-      setTimeout(() => setSaveStatus(""), 3000);
-    } else {
-      toast({
-        title: "API Key Required",
-        description: "Please enter an OpenAI API key to save settings.",
-        variant: "destructive",
-      });
-    }
-  };
+  const navigate = useNavigate();
 
   const toggleShowApiKey = () => {
     setShowApiKey(!showApiKey);
   };
 
+  const handleTest = async () => {
+    if (!apiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter a DeepSeek API key to test connection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setTesting(true);
+    
+    // Save current values before testing
+    localStorage.setItem("deepseek_api_key", apiKey);
+    localStorage.setItem("deepseek_model", model);
+    
+    const result = await testDeepseekConnection();
+    
+    setTesting(false);
+    
+    if (result.success) {
+      toast({
+        title: "Connection Successful",
+        description: "Successfully connected to DeepSeek API!",
+      });
+      setSaveStatus("saved");
+      // Redirect to home page after successful test
+      setTimeout(() => navigate('/'), 1500);
+    } else {
+      toast({
+        title: "Connection Failed",
+        description: result.message,
+        variant: "destructive",
+      });
+      setSaveStatus("");
+    }
+  };
+
+  const handleGoBack = () => {
+    navigate('/');
+  };
+
   return (
     <div className="container py-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Settings</h1>
+      <div className="flex items-center mb-6">
+        <Button 
+          variant="ghost" 
+          onClick={handleGoBack}
+          className="mr-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+        <h1 className="text-2xl font-bold">Settings</h1>
+      </div>
       
       <Card>
         <CardHeader>
-          <CardTitle>OpenAI Integration</CardTitle>
+          <CardTitle>DeepSeek API Integration</CardTitle>
           <CardDescription>
-            Configure your OpenAI API settings for resume parsing and job profile generation.
+            Configure your DeepSeek API settings for resume parsing and job profile generation.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -69,7 +103,7 @@ export default function Settings() {
                 type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your OpenAI API key"
+                placeholder="Enter your DeepSeek API key"
                 className="flex-1"
               />
               <Button 
@@ -93,9 +127,9 @@ export default function Settings() {
                 <SelectValue placeholder="Select model" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gpt-4o">GPT-4o (Recommended)</SelectItem>
-                <SelectItem value="gpt-4o-mini">GPT-4o Mini (Faster)</SelectItem>
-                <SelectItem value="gpt-4.5-preview">GPT-4.5 Preview (Most powerful)</SelectItem>
+                <SelectItem value="deepseek-chat">DeepSeek Chat (Recommended)</SelectItem>
+                <SelectItem value="deepseek-lite">DeepSeek Lite (Faster)</SelectItem>
+                <SelectItem value="deepseek-coder">DeepSeek Coder (Technical tasks)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -103,14 +137,23 @@ export default function Settings() {
             </p>
           </div>
           
-          <Button onClick={handleSave} className="w-full sm:w-auto">
-            {saveStatus === "saved" ? (
+          <Button 
+            onClick={handleTest} 
+            className="w-full sm:w-auto"
+            disabled={testing || saveStatus === "saved"}
+          >
+            {testing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Testing Connection
+              </>
+            ) : saveStatus === "saved" ? (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Saved
+                Connected
               </>
             ) : (
-              "Save Settings"
+              "Save & Test Connection"
             )}
           </Button>
         </CardContent>
