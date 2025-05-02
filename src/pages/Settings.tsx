@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,8 +8,14 @@ import { useToast } from "@/components/ui/use-toast";
 import { Eye, EyeOff, Check, ArrowLeft, Loader2, Settings as SettingsIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { testDeepseekConnection } from "@/utils/deepseekApi";
-import { testOpenAIConnection } from "@/utils/openaiApi";
+import { testOpenRouterConnection, resetOpenRouterModel } from "@/utils/openRouterApi";
 import { useNavigate } from "react-router-dom";
+
+interface OpenRouterModel {
+  id: string;
+  name: string;
+  isFree: boolean;
+}
 
 export default function Settings() {
   // DeepSeek settings
@@ -24,27 +29,30 @@ export default function Settings() {
     return savedModel || "deepseek-chat";
   });
   
-  // OpenAI settings
-  const [openaiApiKey, setOpenaiApiKey] = useState<string>(() => {
-    const savedKey = localStorage.getItem("openai_api_key");
+  // OpenRouter settings
+  const [openrouterApiKey, setOpenrouterApiKey] = useState<string>(() => {
+    const savedKey = localStorage.getItem("openrouter_api_key");
     return savedKey || "";
   });
   
-  const [openaiModel, setOpenaiModel] = useState<string>(() => {
-    const savedModel = localStorage.getItem("openai_model");
-    return savedModel || "gpt-4o";
+  const [openrouterModel, setOpenrouterModel] = useState<string>(() => {
+    // Force using Mistral model
+    resetOpenRouterModel();
+    return "mistralai/mistral-7b-instruct";
   });
   
   const [activeProvider, setActiveProvider] = useState<string>(() => {
     const savedProvider = localStorage.getItem("active_ai_provider");
-    return savedProvider || "openai";
+    return savedProvider || "openrouter";
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [testingDeepseek, setTestingDeepseek] = useState(false);
-  const [testingOpenai, setTestingOpenai] = useState(false);
+  const [testingOpenRouter, setTestingOpenRouter] = useState(false);
   const [deepseekSaved, setDeepseekSaved] = useState(false);
-  const [openaiSaved, setOpenaiSaved] = useState(false);
+  const [openrouterSaved, setOpenrouterSaved] = useState(false);
+  const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -92,33 +100,35 @@ export default function Settings() {
     }
   };
 
-  const handleTestOpenAI = async () => {
-    if (!openaiApiKey) {
+  const handleTestOpenRouter = async () => {
+    if (!openrouterApiKey) {
       toast({
         title: "API Key Required",
-        description: "Please enter an OpenAI API key to test connection.",
+        description: "Please enter an OpenRouter API key to test connection.",
         variant: "destructive",
       });
       return;
     }
 
-    setTestingOpenai(true);
+    setTestingOpenRouter(true);
     
     // Save current values before testing
-    localStorage.setItem("openai_api_key", openaiApiKey);
-    localStorage.setItem("openai_model", openaiModel);
+    localStorage.setItem("openrouter_api_key", openrouterApiKey);
+    // Force using Mistral model
+    resetOpenRouterModel();
+    localStorage.setItem("openrouter_model", "mistralai/mistral-7b-instruct");
     
-    const result = await testOpenAIConnection();
+    const result = await testOpenRouterConnection();
     
-    setTestingOpenai(false);
+    setTestingOpenRouter(false);
     
     if (result.success) {
       toast({
         title: "Connection Successful",
-        description: "Successfully connected to OpenAI API!",
+        description: "Successfully connected to OpenRouter API!",
       });
-      setOpenaiSaved(true);
-      if (activeProvider === "openai") {
+      setOpenrouterSaved(true);
+      if (activeProvider === "openrouter") {
         setTimeout(() => navigate('/'), 1500);
       }
     } else {
@@ -127,7 +137,7 @@ export default function Settings() {
         description: result.message,
         variant: "destructive",
       });
-      setOpenaiSaved(false);
+      setOpenrouterSaved(false);
     }
   };
 
@@ -135,13 +145,58 @@ export default function Settings() {
     localStorage.setItem("active_ai_provider", provider);
     setActiveProvider(provider);
     toast({
-      title: `${provider === 'openai' ? 'OpenAI' : 'DeepSeek'} Selected`,
-      description: `Now using ${provider === 'openai' ? 'OpenAI' : 'DeepSeek'} for resume processing.`,
+      title: `${provider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'} Selected`,
+      description: `Now using ${provider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'} for resume processing.`,
     });
   };
 
   const handleGoBack = () => {
     navigate('/');
+  };
+
+  const fetchAvailableModels = async () => {
+    if (!openrouterApiKey) return;
+    
+    setLoadingModels(true);
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/models", {
+        headers: {
+          "Authorization": `Bearer ${openrouterApiKey}`,
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "Pickra AI"
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch models");
+      }
+      
+      const data = await response.json();
+      // Sort models to show free ones first
+      const models = data.data
+        .sort((a: any, b: any) => {
+          // Put free models first
+          if (a.pricing?.input === 0 && b.pricing?.input !== 0) return -1;
+          if (a.pricing?.input !== 0 && b.pricing?.input === 0) return 1;
+          return 0;
+        })
+        .map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          isFree: m.pricing?.input === 0
+        }));
+      
+      setAvailableModels(models);
+    } catch (error) {
+      console.error("Error fetching models:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch available models",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingModels(false);
+    }
   };
 
   return (
@@ -160,29 +215,34 @@ export default function Settings() {
       
       <Tabs defaultValue={activeProvider} className="mb-8">
         <TabsList className="grid grid-cols-2 mb-4 w-full">
-          <TabsTrigger value="openai" onClick={() => setActiveProvider('openai')}>OpenAI</TabsTrigger>
+          <TabsTrigger value="openrouter" onClick={() => setActiveProvider('openrouter')}>OpenRouter</TabsTrigger>
           <TabsTrigger value="deepseek" onClick={() => setActiveProvider('deepseek')}>DeepSeek</TabsTrigger>
         </TabsList>
         
-        {/* OpenAI Settings */}
-        <TabsContent value="openai">
+        {/* OpenRouter Settings */}
+        <TabsContent value="openrouter">
           <Card>
             <CardHeader>
-              <CardTitle>OpenAI API Integration</CardTitle>
+              <CardTitle>OpenRouter API Integration</CardTitle>
               <CardDescription>
-                Configure your OpenAI API settings for resume parsing and job profile generation.
+                Configure your OpenRouter API settings for resume parsing and job profile generation.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="openai-api-key">API Key</Label>
+                <Label htmlFor="openrouter-api-key">API Key</Label>
                 <div className="flex">
                   <Input
-                    id="openai-api-key"
+                    id="openrouter-api-key"
                     type={showApiKey ? "text" : "password"}
-                    value={openaiApiKey}
-                    onChange={(e) => setOpenaiApiKey(e.target.value)}
-                    placeholder="Enter your OpenAI API key"
+                    value={openrouterApiKey}
+                    onChange={(e) => {
+                      setOpenrouterApiKey(e.target.value);
+                      if (e.target.value) {
+                        fetchAvailableModels();
+                      }
+                    }}
+                    placeholder="Enter your OpenRouter API key"
                     className="flex-1"
                   />
                   <Button 
@@ -200,34 +260,64 @@ export default function Settings() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="openai-model">Model</Label>
-                <Select value={openaiModel} onValueChange={setOpenaiModel}>
-                  <SelectTrigger id="openai-model">
-                    <SelectValue placeholder="Select model" />
+                <Label htmlFor="openrouter-model">Model</Label>
+                <Select
+                  value={openrouterModel}
+                  onValueChange={setOpenrouterModel}
+                  disabled={loadingModels}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="gpt-4o">GPT-4o (Best quality)</SelectItem>
-                    <SelectItem value="gpt-4o-mini">GPT-4o Mini (Faster, cheaper)</SelectItem>
-                    <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Basic)</SelectItem>
+                    {loadingModels ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="ml-2">Loading models...</span>
+                      </div>
+                    ) : availableModels.length > 0 ? (
+                      <>
+                        <div className="px-2 py-1.5 text-sm font-semibold">Free Models</div>
+                        {availableModels
+                          .filter(model => model.isFree)
+                          .map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name} (Free)
+                            </SelectItem>
+                          ))}
+                        <div className="px-2 py-1.5 text-sm font-semibold mt-2">Paid Models</div>
+                        {availableModels
+                          .filter(model => !model.isFree)
+                          .map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.name}
+                            </SelectItem>
+                          ))}
+                      </>
+                    ) : (
+                      <div className="p-2 text-sm text-muted-foreground">
+                        Enter API key to see available models
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  The model used for processing resumes. GPT-4o provides the most accurate results.
+                  Select the AI model to use for processing. Different models may have different capabilities and pricing.
                 </p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button 
-                  onClick={handleTestOpenAI} 
+                  onClick={handleTestOpenRouter} 
                   className="flex-1"
-                  disabled={testingOpenai}
+                  disabled={testingOpenRouter}
                 >
-                  {testingOpenai ? (
+                  {testingOpenRouter ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Testing Connection
                     </>
-                  ) : openaiSaved ? (
+                  ) : openrouterSaved ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
                       Connected
@@ -238,17 +328,17 @@ export default function Settings() {
                 </Button>
                 
                 <Button
-                  onClick={() => handleSetActiveProvider("openai")}
-                  variant={activeProvider === "openai" ? "default" : "outline"}
+                  onClick={() => handleSetActiveProvider("openrouter")}
+                  variant={activeProvider === "openrouter" ? "default" : "outline"}
                   className="flex-1"
                 >
-                  {activeProvider === "openai" ? (
+                  {activeProvider === "openrouter" ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
-                      Using OpenAI
+                      Using OpenRouter
                     </>
                   ) : (
-                    "Use OpenAI"
+                    "Use OpenRouter"
                   )}
                 </Button>
               </div>
@@ -353,15 +443,15 @@ export default function Settings() {
         <CardHeader>
           <CardTitle className="text-xl">Application Settings</CardTitle>
           <CardDescription>
-            General settings for the Resume Match AI application.
+            General settings for the Pickra AI application.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Resume Processing Settings</Label>
             <p className="text-sm text-muted-foreground">
-              Currently using <span className="font-medium">{activeProvider === 'openai' ? 'OpenAI' : 'DeepSeek'}</span> for resume processing and analysis.
-              {!openaiApiKey && !deepseekApiKey && (
+              Currently using <span className="font-medium">{activeProvider === 'openrouter' ? 'OpenRouter' : 'DeepSeek'}</span> for resume processing and analysis.
+              {!openrouterApiKey && !deepseekApiKey && (
                 <span className="block mt-1 text-amber-500">No API keys configured. Please add at least one API key above.</span>
               )}
             </p>

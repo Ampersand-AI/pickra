@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,8 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, X, BadgeCheck, BriefcaseIcon, GraduationCap } from "lucide-react";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
-import { getActiveAIProvider } from "@/utils/openaiApi";
-import { generateJobProfile as generateJobProfileOpenAI } from "@/utils/openaiApi";
+import { getActiveAIProvider, generateJobProfile as generateJobProfileOpenRouter } from "@/utils/openRouterApi";
 import { generateJobProfile as generateJobProfileDeepseek } from "@/utils/deepseekApi";
 import {
   Form,
@@ -32,7 +30,7 @@ const JobRequirements = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
   const activeProvider = getActiveAIProvider();
-  const providerName = activeProvider === "openai" ? "OpenAI" : "DeepSeek";
+  const providerName = activeProvider === "openrouter" ? "OpenRouter" : "DeepSeek";
   const form = useForm();
 
   const handleAddSkill = () => {
@@ -62,8 +60,8 @@ const JobRequirements = () => {
     try {
       // Use the appropriate API based on user's preference
       let jobProfile;
-      if (activeProvider === "openai") {
-        jobProfile = await generateJobProfileOpenAI(title);
+      if (activeProvider === "openrouter") {
+        jobProfile = await generateJobProfileOpenRouter(title);
       } else {
         jobProfile = await generateJobProfileDeepseek(title);
       }
@@ -77,7 +75,12 @@ const JobRequirements = () => {
         });
       } else {
         setDescription(jobProfile.description);
-        setSkills(jobProfile.skills || []);
+        // Map skills to use weight instead of importance
+        const mappedSkills = (jobProfile.skills || []).map(skill => ({
+          name: skill.name,
+          weight: skill.importance || 5
+        }));
+        setSkills(mappedSkills);
         setExperienceYears(jobProfile.experience.years);
         setEducation(jobProfile.education.level);
         
@@ -264,19 +267,19 @@ const JobRequirements = () => {
                   </div>
                   
                   {skills.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3 p-3 bg-background/50 rounded-md border border-border">
+                    <div className="flex flex-col gap-3 mt-3 p-4 bg-muted/30 rounded-md border border-border min-h-[100px] w-full">
                       {skills.map((skill, index) => (
                         <div 
                           key={index} 
-                          className="bg-muted/40 text-foreground px-2 py-1 rounded-md text-xs flex items-center gap-1.5 border border-border"
+                          className="bg-background text-foreground px-4 py-2 rounded-md text-sm flex items-center justify-between w-full border border-border shadow-sm hover:bg-muted/50 transition-colors"
                         >
-                          {skill.name}
+                          <span className="font-medium text-foreground/90">{skill.name}</span>
                           <button 
                             onClick={() => handleRemoveSkill(index)}
-                            className="text-muted-foreground hover:text-destructive focus:outline-none"
+                            className="text-muted-foreground hover:text-destructive focus:outline-none ml-2 p-1 hover:bg-muted rounded-sm transition-colors"
                             type="button"
                           >
-                            <X size={12} />
+                            <X size={14} />
                           </button>
                         </div>
                       ))}
@@ -291,7 +294,7 @@ const JobRequirements = () => {
                 variant="outline"
                 onClick={handleGenerateDescription}
                 disabled={isGenerating || !title.trim()}
-                className="flex-1"
+                className="flex-1 text-white hover:text-white hover:bg-primary/90"
               >
                 {isGenerating ? (
                   <>
@@ -315,7 +318,7 @@ const JobRequirements = () => {
               <Button 
                 onClick={handleSave} 
                 disabled={!title || !description || skills.length === 0} 
-                className="flex-1"
+                className="flex-1 "
               >
                 Save Job
               </Button>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { Mail, Send, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Resume } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
-import { callOpenAI } from "@/utils/openaiApi";
+import { callOpenRouter } from "@/utils/openaiApi";
 
 interface SendTestDialogProps {
   open: boolean;
@@ -64,7 +63,7 @@ export default function SendTestDialog({
             Test Link: ${testLink}
           `;
           
-          const response = await callOpenAI(prompt, systemPrompt);
+          const response = await callOpenRouter(prompt, systemPrompt);
           
           if (response.error) {
             console.error("Error generating message:", response.error);
