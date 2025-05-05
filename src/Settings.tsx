@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 import { Eye, EyeOff, Check, ArrowLeft, Loader2, Settings as SettingsIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { testOpenAIConnection } from "@/utils/openaiApi";
+import { testOpenRouterConnection } from "@/utils/openaiApi";
 import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
@@ -52,7 +51,7 @@ export default function Settings() {
     // Always set OpenAI as the active provider
     localStorage.setItem("active_ai_provider", "openai");
     
-    const result = await testOpenAIConnection();
+    const result = await testOpenRouterConnection();
     
     setTestingOpenai(false);
     

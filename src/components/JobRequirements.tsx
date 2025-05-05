@@ -81,8 +81,9 @@ const JobRequirements = () => {
           weight: skill.importance || 5
         }));
         setSkills(mappedSkills);
-        setExperienceYears(jobProfile.experience.years);
-        setEducation(jobProfile.education.level);
+        // Don't update experience and education at all - preserve user's selection
+        // setExperienceYears(jobProfile.experience.years);
+        // setEducation(jobProfile.education.level);
         
         toast({
           title: "Profile Generated",

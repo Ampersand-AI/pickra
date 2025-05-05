@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { 
@@ -58,15 +57,18 @@ export default function ResumeResults() {
                   extractedData: {
                     name: parsedData.name,
                     email: parsedData.email,
-                    phone: parsedData.phone,
+                    phone: parsedData.phone || "",
                     skills: parsedData.skills,
                     experience: parsedData.experience,
-                    education: parsedData.education
+                    education: parsedData.education.map(edu => ({
+                      ...edu,
+                      year: parseInt(edu.year) || 0 // Convert string year to number
+                    }))
                   }
                 }
               });
             } catch (error) {
-              console.error(`Error processing resume ${resume.fileName}:`, error);
+         
               dispatch({ 
                 type: "UPDATE_RESUME", 
                 payload: {
@@ -197,7 +199,7 @@ export default function ResumeResults() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sortedResumes.map((resume) => {
             const matchInfo = resume.processed ? getMatchLevelInfo(resume.matchPercentage) : null;
-            const isHighMatch = resume.processed && resume.matchPercentage >= 80;
+            const isHighMatch = resume.processed && resume.matchPercentage >= 70;
             
             return (
               <Card 
@@ -480,14 +482,11 @@ export default function ResumeResults() {
                 </div>
                 
                 {/* Send Test Button (if not sent already and high match) */}
-                {!selectedResume.testSent && selectedResume.matchPercentage >= 80 && (
+                {!selectedResume.testSent && selectedResume.matchPercentage >= 70 && (
                   <div className="pt-4 flex justify-end">
                     <Button onClick={() => {
                       setDialogOpen(false);
-                      setTimeout(() => {
-                        setResumeForTest(selectedResume);
-                        setSendTestDialogOpen(true);
-                      }, 100);
+                      handleSendTest(selectedResume);
                     }} className="gap-2">
                       <Send className="h-4 w-4" />
                       Send Assessment Test

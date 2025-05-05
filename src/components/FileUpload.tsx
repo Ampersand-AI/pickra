@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,14 @@ import { useResumeMatch } from "@/context/ResumeMatchContext";
 import { v4 as uuidv4 } from "uuid";
 import { extractTextFromPDF } from "@/utils/pdfParser";
 import { parseResume } from "@/utils/openaiApi";
+import { Progress } from "@/components/ui/progress";
+import type { Resume } from "@/context/ResumeMatchContext";
 
 const FileUpload = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [processingProgress, setProcessingProgress] = useState<{ [key: string]: number }>({});
+  const [processingStatus, setProcessingStatus] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
   const { state, dispatch } = useResumeMatch();
 
@@ -62,41 +65,54 @@ const FileUpload = () => {
         files.map(async (file) => {
           const fileId = uuidv4();
           
-          // Add the resume to the state with processing status first
-          dispatch({
-            type: "ADD_RESUMES",
-            payload: [
-              {
-                id: fileId,
-                fileName: file.name,
-                fileSize: file.size,
-                uploadDate: new Date(),
-                processed: false,
-              },
-            ],
-          });
+          // Initialize progress tracking for this file
+          setProcessingProgress(prev => ({ ...prev, [fileId]: 0 }));
+          setProcessingStatus(prev => ({ ...prev, [fileId]: "Starting processing..." }));
           
           try {
-            // Get file content as text or base64
-            const fileContent = await readFileContent(file);
+            // Extract text from PDF
+            let fileContent;
+            if (file.type === 'application/pdf') {
+              setProcessingStatus(prev => ({ ...prev, [fileId]: "Extracting text from PDF..." }));
+              setProcessingProgress(prev => ({ ...prev, [fileId]: 20 }));
+              
+              try {
+                fileContent = await extractTextFromPDF(file, (progress) => {
+                  // Update progress based on PDF processing stages
+                  const progressValue = 20 + (progress * 40); // 20-60% for PDF processing
+                  setProcessingProgress(prev => ({ ...prev, [fileId]: progressValue }));
+                });
+                
+                if (!fileContent || fileContent.trim().length === 0) {
+                  throw new Error("No text could be extracted from the PDF");
+                }
+              } catch (pdfError: any) {
+                throw new Error(`PDF Processing Error: ${pdfError.message}`);
+              }
+            } else {
+              setProcessingStatus(prev => ({ ...prev, [fileId]: "Reading file content..." }));
+              setProcessingProgress(prev => ({ ...prev, [fileId]: 30 }));
+              fileContent = await readFileContent(file);
+            }
             
-            // Always use OpenAI for parsing
+            setProcessingStatus(prev => ({ ...prev, [fileId]: "Analyzing with OpenAI..." }));
+            setProcessingProgress(prev => ({ ...prev, [fileId]: 60 }));
+            
+            // Process with OpenAI
             const parsedData = await parseResume(
               fileContent,
               state.selectedJobRequirement
             );
 
-            if (parsedData.error) {
-              toast({
-                title: "Parsing Error",
-                description: `Failed to parse ${file.name}: ${parsedData.error}`,
-                variant: "destructive",
-              });
-              dispatch({ type: "DELETE_RESUME", payload: fileId });
-            } else {
-              dispatch({
-                type: "UPDATE_RESUME",
-                payload: {
+            // Only update the UI once when processing is complete
+            setProcessingProgress(prev => ({ ...prev, [fileId]: 100 }));
+            setProcessingStatus(prev => ({ ...prev, [fileId]: "Processing complete" }));
+
+            // Add the resume to the state only after processing is complete
+            dispatch({
+              type: "ADD_RESUMES",
+              payload: [
+                {
                   id: fileId,
                   fileName: file.name,
                   fileSize: file.size,
@@ -107,22 +123,42 @@ const FileUpload = () => {
                   extractedData: {
                     name: parsedData.name,
                     email: parsedData.email,
-                    phone: parsedData.phone,
+                    phone: parsedData.phone || "",
                     skills: parsedData.skills,
                     experience: parsedData.experience,
-                    education: parsedData.education,
-                  },
-                },
-              });
-            }
+                    education: parsedData.education.map(edu => ({
+                      degree: edu.degree,
+                      institution: edu.institution,
+                      year: typeof edu.year === 'string' ? parseInt(edu.year) || 0 : edu.year
+                    }))
+                  }
+                } as Resume
+              ],
+            });
+
           } catch (error: any) {
-            console.error("Error processing file:", error);
+           
+            const errorMessage = error.message.includes("PDF Processing Error") 
+              ? error.message 
+              : `An unexpected error occurred while parsing ${file.name}: ${error.message}`;
+            
             toast({
-              title: "Unexpected Error",
-              description: `An unexpected error occurred while parsing ${file.name}: ${error.message}`,
+              title: "Processing Error",
+              description: errorMessage,
               variant: "destructive",
             });
-            dispatch({ type: "DELETE_RESUME", payload: fileId });
+            
+            // Clear progress tracking for this file
+            setProcessingProgress(prev => {
+              const newProgress = { ...prev };
+              delete newProgress[fileId];
+              return newProgress;
+            });
+            setProcessingStatus(prev => {
+              const newStatus = { ...prev };
+              delete newStatus[fileId];
+              return newStatus;
+            });
           }
         })
       );
@@ -135,10 +171,18 @@ const FileUpload = () => {
       // Clear the file list after processing
       setFiles([]);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error processing files:", error);
+      toast({
+        title: "Processing Error",
+        description: error.message || "An error occurred while processing the files.",
+        variant: "destructive",
+      });
     } finally {
       setIsUploading(false);
+      // Clear all progress tracking
+      setProcessingProgress({});
+      setProcessingStatus({});
     }
   };
   
@@ -148,13 +192,13 @@ const FileUpload = () => {
       
       reader.onload = async () => {
         try {
-          const content = reader.result as string;
           if (file.type === "application/pdf") {
-            // For PDF files, extract text using PDF.js
-            const extractedText = await extractTextFromPDF(content);
+            // For PDF files, use the File object directly
+            const extractedText = await extractTextFromPDF(file);
             resolve(extractedText);
           } else {
             // For other file types, use the raw text
+            const content = reader.result as string;
             resolve(content);
           }
         } catch (error) {
@@ -166,11 +210,8 @@ const FileUpload = () => {
         reject(new Error(`Failed to read ${file.name}`));
       };
       
-      if (file.type === "application/pdf") {
-        reader.readAsDataURL(file);
-      } else {
-        reader.readAsText(file);
-      }
+      // For non-PDF files, read as text
+      reader.readAsText(file);
     });
   };
 
@@ -217,27 +258,41 @@ const FileUpload = () => {
               </Button>
             </div>
             <div className="max-h-48 overflow-y-auto divide-y divide-border/40 rounded-md border border-border/40 bg-muted/20">
-              {files.map((file, index) => (
-                <div key={index} className="flex justify-between items-center p-2 px-3">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <div className="bg-muted/50 p-1 rounded">
-                      <FileText size={14} className="text-muted-foreground" />
+              {files.map((file, index) => {
+                const fileId = Object.keys(processingProgress)[index];
+                const progress = fileId ? processingProgress[fileId] : 0;
+                const status = fileId ? processingStatus[fileId] : "";
+                
+                return (
+                  <div key={index} className="flex flex-col p-2 px-3">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="bg-muted/50 p-1 rounded">
+                          <FileText size={14} className="text-muted-foreground" />
+                        </div>
+                        <span className="text-sm truncate max-w-[150px]">{file.name}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7"
+                        onClick={() => removeFile(index)}
+                      >
+                        <X size={14} />
+                      </Button>
                     </div>
-                    <span className="text-sm truncate max-w-[150px]">{file.name}</span>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {(file.size / 1024).toFixed(1)} KB
-                    </span>
+                    {isUploading && (
+                      <div className="mt-2 space-y-1">
+                        <Progress value={progress} className="h-1" />
+                        <p className="text-xs text-muted-foreground">{status}</p>
+                      </div>
+                    )}
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7"
-                    onClick={() => removeFile(index)}
-                  >
-                    <X size={14} />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <Button 
               className="w-full mt-2" 

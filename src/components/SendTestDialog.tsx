@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,68 +27,63 @@ export default function SendTestDialog({
 }: SendTestDialogProps) {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const hasInitialized = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
-  // Generate a unique test link for this candidate
-  const testId = uuidv4().substring(0, 8);
-  const testLink = `https://pickra.ai/test/${testId}`;
-  
-  // Generate a message using OpenAI when the dialog opens
-  useEffect(() => {
-    if (open && resume) {
-      const generateMessage = async () => {
-        setGenerating(true);
-        try {
-          const systemPrompt = `
-            You are an AI assistant helping recruiters send personalized test invitations to job candidates.
-            Write a professional and friendly email message to a candidate who has been shortlisted for a position.
-            The message should:
-            1. Be addressed to the candidate by name
-            2. Mention the specific job position
-            3. Explain that their resume has been shortlisted (mention their match percentage)
-            4. Request them to complete an assessment test as the next step
-            5. Include the provided test link
-            6. Be concise, professional and encouraging
-            7. Thank them for their interest
-          `;
-          
-          const prompt = `
-            Write a personalized test invitation email for:
-            
-            Candidate Name: ${resume.extractedData?.name || "Candidate"}
-            Candidate Email: ${resume.extractedData?.email || "Unknown"}
-            Position: ${jobTitle}
-            Match Percentage: ${resume.matchPercentage}%
-            Test Link: ${testLink}
-          `;
-          
-          const response = await callOpenRouter(prompt, systemPrompt);
-          
-          if (response.error) {
-            console.error("Error generating message:", response.error);
-            // Fall back to default message if OpenAI fails
-            setMessage(getDefaultMessage());
-          } else {
-            const generatedContent = response.data.choices[0].message.content;
-            setMessage(generatedContent);
-          }
-        } catch (error) {
-          console.error("Error generating email:", error);
-          setMessage(getDefaultMessage());
-        } finally {
-          setGenerating(false);
-        }
-      };
+  // Generate a unique test link for this candidate using useMemo
+  const { testId, testLink } = useMemo(() => {
+    const id = uuidv4().substring(0, 8);
+    return {
+      testId: id,
+      testLink: `https://pickra.ai/test/${id}`
+    };
+  }, []); // Empty dependency array means this only runs once when component mounts
+
+  // Generate default message using useCallback to prevent recreation
+  const generateDefaultMessage = useCallback(async () => {
+    if (!resume) return "";
+    
+    try {
+      setGenerating(true);
       
-      generateMessage();
-    }
-  }, [open, resume, jobTitle, testLink]);
-  
-  // Fallback message template if API call fails
-  const getDefaultMessage = () => {
-    return resume ? 
-      `Dear ${resume.extractedData?.name || "Candidate"},
+      const systemPrompt = `You are an expert at writing professional test invitation emails. Write a personalized test invitation email that is concise, professional, and includes all the necessary information.`;
+      
+      const userPrompt = `Write a personalized test invitation email for:
+            
+Candidate Name: ${resume.extractedData?.name || "Candidate"}
+Candidate Email: ${resume.extractedData?.email || "Not provided"}
+Position: ${jobTitle}
+Match Percentage: ${resume.matchPercentage}%
+Test Link: ${testLink}
+
+The email should:
+1. Be professional and concise
+2. Include the candidate's name
+3. Mention the position they applied for
+4. Include their match percentage
+5. Include the test link
+6. Have a clear call to action
+7. Include a professional signature`;
+
+      const response = await callOpenRouter(systemPrompt, userPrompt);
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      if (!response.data?.choices?.[0]?.message?.content) {
+        throw new Error("Invalid response format from API");
+      }
+
+      const generatedMessage = response.data.choices[0].message.content;
+      setMessage(generatedMessage); // Update message state directly here
+      return generatedMessage;
+    } catch (error) {
+      console.error("Error generating message:", error);
+      // Return a fallback message if generation fails
+      const fallbackMessage = `Dear ${resume.extractedData?.name || "Candidate"},
 
 We were impressed with your profile for the ${jobTitle} position. As the next step in our evaluation process, we'd like you to complete a brief assessment.
 
@@ -100,8 +95,56 @@ This assessment will help us understand your skills and experience better. The t
 Thank you for your interest in our company. We look forward to reviewing your results.
 
 Best regards,
-Pickra AI Recruitment Team` : "";
-  };
+${resume.extractedData?.name || "Recruiter"}
+${resume.extractedData?.email || "recruiter@company.com"}
+${resume.extractedData?.phone || "+1 (555) 123-4567"}`;
+
+      setMessage(fallbackMessage); // Update message state with fallback
+      return fallbackMessage;
+    } finally {
+      setGenerating(false);
+    }
+  }, [resume, jobTitle, testLink]);
+
+  // Update message when dialog opens
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeMessage = async () => {
+      if (open && resume && !hasInitialized.current) {
+        try {
+          await generateDefaultMessage();
+          if (isMounted) {
+            hasInitialized.current = true;
+          }
+        } catch (error) {
+          console.error("Error initializing message:", error);
+        }
+      }
+    };
+
+    initializeMessage();
+
+    return () => {
+      isMounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [open, resume, generateDefaultMessage]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setMessage("");
+      setSending(false);
+      setGenerating(false);
+      hasInitialized.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }
+  }, [open]);
   
   const handleSendTest = async () => {
     if (!resume) return;
@@ -109,9 +152,56 @@ Pickra AI Recruitment Team` : "";
     setSending(true);
     
     try {
-      // In a real app, this would send an actual email
-      // For now we'll just simulate the process with a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare email data
+      const emailData = {
+        to: resume.extractedData?.email,
+        subject: `Assessment Test Invitation - ${jobTitle} Position`,
+        text: message,
+        html: message.replace(/\n/g, '<br>'),
+        cc: import.meta.env.VITE_RECRUITER_EMAIL
+      };
+
+      // Send email using the API
+      console.log('Sending email request to:', 'http://localhost:4000/api/email/send-email');
+      console.log('Email data:', emailData);
+      
+      const response = await fetch('http://localhost:4000/api/email/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData)
+      }).catch(error => {
+        console.error('Network error:', error);
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+          throw new Error('Unable to connect to the server. Please make sure the backend server is running on port 4000.');
+        }
+        throw error;
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        console.error('Response status:', response.status);
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+        
+        if (response.status === 404) {
+          throw new Error('Email sending endpoint not found. Please make sure the backend server is properly configured.');
+        }
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (error) {
+        console.error('Failed to parse JSON response:', error);
+        throw new Error('Invalid server response format');
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send email');
+      }
       
       // Call the parent handler to update the resume with test info
       onSendTest(resume.id, testLink);
@@ -123,10 +213,12 @@ Pickra AI Recruitment Team` : "";
       
       onOpenChange(false);
     } catch (error) {
+      console.error("Error sending test:", error);
+      
       toast({
         variant: "destructive",
         title: "Failed to send test",
-        description: "There was a problem sending the test invitation. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to send test invitation. Please make sure the backend server is running.",
       });
     } finally {
       setSending(false);
@@ -173,19 +265,19 @@ Pickra AI Recruitment Team` : "";
               Message
             </Label>
             <div className="col-span-3">
-              {generating ? (
-                <div className="flex flex-col items-center justify-center p-4 border rounded-md bg-muted/20 min-h-[200px]">
-                  <Loader2 className="h-6 w-6 animate-spin mb-2" />
-                  <p className="text-sm text-muted-foreground">Generating message with OpenAI...</p>
+              <Textarea
+                id="message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="min-h-[200px] font-mono text-sm"
+                placeholder={generating ? "Generating message..." : "Enter your message to the candidate."}
+                disabled={generating}
+              />
+              {generating && (
+                <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating message...
                 </div>
-              ) : (
-                <Textarea
-                  id="message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="min-h-[200px]"
-                  placeholder="Enter your message to the candidate."
-                />
               )}
             </div>
           </div>
