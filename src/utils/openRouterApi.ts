@@ -262,11 +262,15 @@ export const generateJobProfile = async (jobTitle: string): Promise<{
 }> => {
   const systemPrompt = `You are an AI assistant specialized in job profile generation.
   Generate a detailed job profile based on the provided job title.
-  Return the data in a structured JSON format with the following fields:
-  - description: A detailed job description
-  - skills: Array of required skills with their importance weights (1-5)
-  - experience: Required years of experience
-  - education: Required education level`;
+  Return ONLY a JSON object with the following fields and structure (do NOT wrap in any other object, such as job_profile):
+  {
+    "job_title": "string",
+    "description": "string",
+    "skills": [ { "name": "string", "weight": number }, ... ],
+    "experience": "string",
+    "education": "string"
+  }
+  Do not include any extra fields. Return ONLY the JSON object above.`;
 
   try {
     const response = await callOpenRouter(

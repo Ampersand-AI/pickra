@@ -1,5 +1,6 @@
 import { createWorker } from 'tesseract.js';
 import * as pdfjs from 'pdfjs-dist';
+import { v4 as uuidv4 } from 'uuid';
 
 // Set the worker source
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -86,7 +87,11 @@ export const extractTextFromPDF = async (
     console.log(`Total extracted text: ${fullText.length} characters`);
     return fullText;
   } catch (error) {
-    console.error('Error extracting text from PDF:', error);
+    if (error && error.name === 'InvalidPDFException') {
+      console.error(`InvalidPDFException: Failed to parse PDF file '${file.name}'.`, error);
+    } else {
+      console.error('Error extracting text from PDF:', error);
+    }
     throw new Error('Failed to extract text from PDF. Please try again with another file.');
   } finally {
     // Terminate the Tesseract worker
@@ -94,4 +99,48 @@ export const extractTextFromPDF = async (
       await worker.terminate();
     }
   }
+};
+
+export const extractTextFromMultiplePDFs = async (
+  files: File[],
+  dispatch: any,
+  onProgress?: (progress: number) => void
+): Promise<string[]> => {
+  // Log the number of files being processed
+  console.log(`Processing ${files.length} files...`);
+
+  // Process all PDF files in parallel
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        const text = await extractTextFromPDF(file, onProgress);
+        return text;
+      } catch (error) {
+        console.error(`Error processing file ${file.name}:`, error);
+        // Log the specific error message for InvalidPDFException
+        if (error && error.name === 'InvalidPDFException') {
+          console.error(`InvalidPDFException: Failed to parse PDF file '${file.name}'.`, error);
+        }
+        // Log that the resume failed to parse
+        console.log(`Resume '${file.name}' failed to parse.`);
+        // Add a placeholder resume card for the failed file
+        dispatch({
+          type: "ADD_RESUMES",
+          payload: [
+            {
+              id: uuidv4(),
+              fileName: file.name,
+              fileSize: file.size,
+              uploadDate: new Date(),
+              processed: false,
+              error: `Error processing ${file.name}: ${error.message}`,
+            }
+          ],
+        });
+        return `Error processing ${file.name}: ${error.message}`;
+      }
+    })
+  );
+
+  return results;
 };

@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { FileCheck2, BriefcaseIcon, BadgeCheck, Sparkles, LineChart, CheckCircle } from "lucide-react";
@@ -154,14 +153,9 @@ const Landing = () => {
       </section>
       
       {/* Footer */}
-      <footer className="border-t border-border/40 py-10">
-        <div className="container text-center text-muted-foreground">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <FileCheck2 className="h-5 w-5 text-primary" />
-            <h3 className="font-bold text-lg">Pickra AI</h3>
-          </div>
-          <p className="text-sm">© {new Date().getFullYear()} Pickra AI. All rights reserved.</p>
-        </div>
+      <footer >
+        {/* Left: Icon + Links */}
+       
       </footer>
     </div>
   );

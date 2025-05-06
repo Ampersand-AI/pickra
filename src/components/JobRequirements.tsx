@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +25,22 @@ const JobRequirements = () => {
   const [description, setDescription] = useState("");
   const [skills, setSkills] = useState<Array<{ name: string; weight: number }>>([]);
   const [currentSkill, setCurrentSkill] = useState("");
-  const [experienceYears, setExperienceYears] = useState(2);
+  const [experienceYears, setExperienceYears] = useState(0);
   const [education, setEducation] = useState("Bachelor's");
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
   const activeProvider = getActiveAIProvider();
   const providerName = activeProvider === "openrouter" ? "OpenRouter" : "DeepSeek";
   const form = useForm();
+
+  // Add console logs for state changes
+  useEffect(() => {
+    console.log('Education level changed:', education);
+  }, [education]);
+
+  useEffect(() => {
+    console.log('Experience years changed:', experienceYears);
+  }, [experienceYears]);
 
   const handleAddSkill = () => {
     if (!currentSkill.trim()) return;
@@ -75,12 +84,28 @@ const JobRequirements = () => {
         });
       } else {
         setDescription(jobProfile.description);
-        // Map skills to use weight instead of importance
-        const mappedSkills = (jobProfile.skills || []).map(skill => ({
-          name: skill.name,
-          weight: skill.importance || 5
-        }));
-        setSkills(mappedSkills);
+        // Defensive mapping: support both top-level and job_profile-wrapped responses
+        const profile = jobProfile.job_profile || jobProfile;
+        let mappedSkills = Array.isArray(profile.skills)
+          ? profile.skills
+              .filter(skill => skill && (skill.name || skill.skill))
+              .map(skill => ({
+                name: skill.name || skill.skill,
+                weight: skill.weight || skill.importance || 5
+              }))
+          : [];
+        // Prevent duplicates
+        const uniqueSkills = [];
+        const skillNames = new Set();
+        for (const skill of mappedSkills) {
+          if (!skillNames.has(skill.name)) {
+            uniqueSkills.push(skill);
+            skillNames.add(skill.name);
+          }
+        }
+        setSkills(uniqueSkills);
+        // Debug log
+        console.log("Set skills after generation:", uniqueSkills);
         // Don't update experience and education at all - preserve user's selection
         // setExperienceYears(jobProfile.experience.years);
         // setEducation(jobProfile.education.level);
@@ -142,8 +167,6 @@ const JobRequirements = () => {
     setTitle("");
     setDescription("");
     setSkills([]);
-    setExperienceYears(2);
-    setEducation("Bachelor's");
   };
 
   return (
@@ -295,7 +318,7 @@ const JobRequirements = () => {
                 variant="outline"
                 onClick={handleGenerateDescription}
                 disabled={isGenerating || !title.trim()}
-                className="flex-1 text-white hover:text-white hover:bg-primary/90"
+                className="flex-1 text-white hover:text-white hover:bg-primary/30"
               >
                 {isGenerating ? (
                   <>
